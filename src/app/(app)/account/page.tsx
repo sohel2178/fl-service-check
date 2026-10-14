@@ -3,7 +3,7 @@ import * as React from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/app-shell';
 import { useAuth } from '@/components/auth-provider';
-import { InstallAppCard } from '@/components/pwa';
+import { InstallAppCard, NotificationsCard } from '@/components/pwa';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, Input } from '@/components/ui/input';
@@ -55,6 +55,7 @@ export default function AccountPage() {
             </form>
           </CardContent>
         </Card>
+        <NotificationsCard />
         <InstallAppCard />
       </div>
     </>

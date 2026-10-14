@@ -1,5 +1,5 @@
 /* Service Check service worker — caches the app shell only, never API data. */
-const CACHE = 'sc-v1';
+const CACHE = 'sc-v2';
 const OFFLINE_URL = '/offline';
 const PRECACHE = [OFFLINE_URL, '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png'];
 
@@ -56,4 +56,35 @@ self.addEventListener('fetch', (event) => {
       )
     );
   }
+});
+
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data && event.data.text() };
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'Service Check', {
+      body: data.body || '',
+      tag: data.tag,
+      renotify: Boolean(data.tag),
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      data: { url: data.url || '/dashboard' },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = new URL(event.notification.data?.url || '/dashboard', self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((w) => w.url.startsWith(self.location.origin));
+      if (open) return open.focus().then((w) => (w || open).navigate(url));
+      return self.clients.openWindow(url);
+    })
+  );
 });

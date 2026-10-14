@@ -42,9 +42,7 @@ const PhoneLink = ({ phone }: { phone?: string }) =>
 
 export default function TicketDetailPage({ params }: { params: { id: string } }) {
   const { user } = useAuth();
-  const { data, error, mutate } = useSWR<{ ticket: Ticket; actions: AllowedAction[] }>(`/tickets/${params.id}`, fetcher, {
-    refreshInterval: 30000,
-  });
+  const { data, error, mutate } = useSWR<{ ticket: Ticket; actions: AllowedAction[] }>(`/tickets/${params.id}`, fetcher);
 
   if (error) {
     return (

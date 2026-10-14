@@ -2,6 +2,7 @@
 import * as React from 'react';
 import { api, ApiError, tokenStore } from '@/lib/api';
 import type { User } from '@/lib/types';
+import { unsubscribePush } from './pwa';
 
 interface AuthState {
   user: User | null;
@@ -46,7 +47,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return d.user;
   }, []);
 
-  const logout = React.useCallback(() => {
+  const logout = React.useCallback(async () => {
+    // Needs the token, so before clearing it; never blocks sign-out.
+    await unsubscribePush().catch(() => {});
     tokenStore.clear();
     setUser(null);
     window.location.href = '/login';

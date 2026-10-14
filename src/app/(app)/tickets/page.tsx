@@ -59,7 +59,6 @@ function TicketList() {
   if (debouncedQ) query.set('q', debouncedQ);
 
   const { data, isLoading } = useSWR<{ tickets: Ticket[]; total: number; pages: number }>(`/tickets?${query}`, fetcher, {
-    refreshInterval: 30000,
     keepPreviousData: true,
   });
 

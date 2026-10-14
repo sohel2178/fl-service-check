@@ -9,6 +9,7 @@ import type { Role } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Skeleton } from './ui/skeleton';
 import { Button } from './ui/button';
+import { RealtimeProvider } from './realtime';
 
 interface NavItem {
   href: string;
@@ -67,6 +68,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen md:flex">
+      <RealtimeProvider key={user._id} />
       {/* Desktop rail */}
       <aside className="hidden w-60 shrink-0 flex-col bg-rail text-white md:sticky md:top-0 md:flex md:h-screen">
         <div className="flex items-center gap-2.5 px-5 pb-6 pt-5">

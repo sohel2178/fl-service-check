@@ -45,11 +45,10 @@ const PHASES: { tone: Tone; label: string }[] = [
 export default function DashboardPage() {
   const { user } = useAuth();
   const role = user!.role;
-  const { data: stats } = useSWR<Stats>('/dashboard/stats', fetcher, { refreshInterval: 30000 });
+  const { data: stats } = useSWR<Stats>('/dashboard/stats', fetcher);
   const { data: queue, isLoading } = useSWR<{ tickets: Ticket[]; total: number }>(
     `/tickets?status=${QUEUE[role].join(',')}&limit=8`,
-    fetcher,
-    { refreshInterval: 30000 }
+    fetcher
   );
 
   const byTone = PHASES.map((p) => ({
