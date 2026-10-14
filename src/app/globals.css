@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Map paper ground, navy ink, hi-vis amber for "your move", fix blue for the field. */
+    --background: 210 20% 94.5%;      /* #EEF1F4 */
+    --foreground: 222 51% 16%;        /* #14213D */
+    --card: 0 0% 100%;
+    --card-foreground: 222 51% 16%;
+    --rail: 222 55% 13%;              /* #0F1A33 */
+    --primary: 37 91% 55%;            /* #F5A524 */
+    --primary-foreground: 222 51% 16%;
+    --secondary: 214 25% 91%;
+    --secondary-foreground: 222 51% 16%;
+    --muted: 214 25% 95%;
+    --muted-foreground: 221 18% 40%;  /* #56627C */
+    --accent: 40 96% 92%;             /* amber tint for selected states */
+    --accent-foreground: 222 51% 16%;
+    --fix: 226 81% 55%;               /* #2F5BEA */
+    --ok: 156 68% 33%;                /* #1B8E5E */
+    --destructive: 0 64% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 216 22% 86%;
+    --input: 216 20% 78%;
+    --ring: 226 81% 55%;
+    --radius: 0.625rem;
+  }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground antialiased; font-feature-settings: 'ss01'; }
+  :focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+}
+
+@layer utilities {
+  .font-wide { font-stretch: 118%; }
+  .font-narrow { font-stretch: 72%; }
+  .tnum { font-variant-numeric: tabular-nums; }
+}
+
+/* The one ambient motion: the live position dot on a ticket's route. */
+@keyframes position-ping {
+  0% { transform: scale(1); opacity: 0.55; }
+  80%, 100% { transform: scale(2.6); opacity: 0; }
+}
+.position-ping { animation: position-ping 2.2s cubic-bezier(0, 0, 0.2, 1) infinite; }
+
+/* Login route draws itself once. */
+@keyframes route-draw { to { stroke-dashoffset: 0; } }
+.route-draw { stroke-dasharray: 1200; stroke-dashoffset: 1200; animation: route-draw 2.4s cubic-bezier(0.65, 0, 0.35, 1) 0.2s forwards; }
+@keyframes waypoint-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.waypoint-in { opacity: 0; animation: waypoint-in 0.5s ease-out forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .position-ping { animation: none; opacity: 0; }
+  .route-draw { animation: none; stroke-dashoffset: 0; }
+  .waypoint-in { animation: none; opacity: 1; }
+  .animate-in { animation: none !important; }
+}
