@@ -2,11 +2,11 @@
 import * as React from 'react';
 import useSWR from 'swr';
 import { toast } from 'sonner';
-import { Pencil, PhoneCall } from 'lucide-react';
+import { CalendarClock, PauseCircle, Pencil, PhoneCall, UserRoundCog } from 'lucide-react';
 import { api, ApiError, fetcher } from '@/lib/api';
 import type { Action, AllowedAction, Outcome, TechnicianOption, Ticket, User, Zone } from '@/lib/types';
 import { OUTCOME_LABEL } from '@/lib/status';
-import { cn, toDateInput } from '@/lib/utils';
+import { cn, formatDate, toDateInput } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Dialog } from './ui/dialog';
 import { Field, Input, Select, Textarea } from './ui/input';
@@ -14,10 +14,12 @@ import { Field, Input, Select, Textarea } from './ui/input';
 type Result = { ticket: Ticket; actions: AllowedAction[] };
 
 /** Actions that just need a click (with an optional note). */
-const SIMPLE: Action[] = ['pick_up', 'accept', 'on_the_way', 'start_work', 'verify_close'];
+const SIMPLE: Action[] = ['pick_up', 'resume', 'accept', 'on_the_way', 'start_work', 'verify_close'];
 /** Actions that require a reason. */
 const NEEDS_REASON: Action[] = ['customer_declined', 'reject', 'reopen', 'cancel'];
 const DANGER: Action[] = ['customer_declined', 'reject', 'cancel'];
+/** Side paths: shown as outline buttons next to the main step. */
+const SECONDARY: Action[] = ['put_on_hold', 'reassign_technician', 'customer_postponed'];
 
 const FINISHED = ['COMPLETED', 'CLOSED', 'CANCELLED'];
 
@@ -26,7 +28,11 @@ const DONE: Record<Action, string> = {
   pick_up: 'Picked up. Call the customer next.',
   customer_agreed: 'Agreement saved',
   customer_declined: 'Marked as declined',
+  put_on_hold: 'Put on hold. Call center can see your note.',
+  resume: 'Resumed. Confirm the visit with the customer.',
   assign_technician: 'Technician assigned',
+  reassign_technician: 'Technician reassigned',
+  customer_postponed: 'Postponement logged and manager notified',
   accept: 'Job accepted',
   reject: 'Job rejected and sent back',
   on_the_way: 'Marked as on the way',
@@ -58,7 +64,8 @@ export function TicketActions({ ticket, actions, user, onChange }: { ticket: Tic
   const canEdit =
     (user.role === 'admin' || (user.role === 'manager' && ticket.manager?._id === user._id)) && !FINISHED.includes(ticket.status);
 
-  const primary = actions.filter((a) => !DANGER.includes(a.action));
+  const primary = actions.filter((a) => !DANGER.includes(a.action) && !SECONDARY.includes(a.action));
+  const secondary = actions.filter((a) => SECONDARY.includes(a.action));
   const danger = actions.filter((a) => DANGER.includes(a.action));
   const close = () => setOpen(null);
 
@@ -75,6 +82,14 @@ export function TicketActions({ ticket, actions, user, onChange }: { ticket: Tic
             loading={busy === a.action}
             onClick={() => (SIMPLE.includes(a.action) ? run(a.action) : setOpen(a.action))}
           >
+            {a.label}
+          </Button>
+        ))}
+        {secondary.map((a) => (
+          <Button key={a.action} variant="outline" size="lg" className="w-full sm:w-auto" onClick={() => setOpen(a.action)}>
+            {a.action === 'customer_postponed' && <CalendarClock />}
+            {a.action === 'put_on_hold' && <PauseCircle />}
+            {a.action === 'reassign_technician' && <UserRoundCog />}
             {a.label}
           </Button>
         ))}
@@ -103,6 +118,9 @@ export function TicketActions({ ticket, actions, user, onChange }: { ticket: Tic
 
       {open === 'customer_agreed' && <AgreeDialog ticket={ticket} busy={!!busy} onClose={close} onSubmit={(b) => run('customer_agreed', b)} />}
       {open === 'assign_technician' && <AssignDialog ticket={ticket} busy={!!busy} onClose={close} onSubmit={(b) => run('assign_technician', b)} />}
+      {open === 'reassign_technician' && <AssignDialog reassign ticket={ticket} busy={!!busy} onClose={close} onSubmit={(b) => run('reassign_technician', b)} />}
+      {open === 'put_on_hold' && <HoldDialog busy={!!busy} onClose={close} onSubmit={(b) => run('put_on_hold', b)} />}
+      {open === 'customer_postponed' && <PostponeDialog ticket={ticket} busy={!!busy} onClose={close} onSubmit={(b) => run('customer_postponed', b)} />}
       {open === 'complete' && <CompleteDialog ticket={ticket} busy={!!busy} onClose={close} onSubmit={(b) => run('complete', b)} />}
       {open && NEEDS_REASON.includes(open as Action) && (
         <ReasonDialog
@@ -162,10 +180,10 @@ function AgreeDialog({ ticket, busy, onClose, onSubmit }: { ticket: Ticket; busy
   );
 }
 
-function AssignDialog({ ticket, busy, onClose, onSubmit }: { ticket: Ticket; busy: boolean; onClose: () => void; onSubmit: (b: Record<string, unknown>) => void }) {
+function AssignDialog({ ticket, busy, onClose, onSubmit, reassign }: { ticket: Ticket; busy: boolean; onClose: () => void; onSubmit: (b: Record<string, unknown>) => void; reassign?: boolean }) {
   const zoneId = ticket.location?.zone?._id || '';
   const { data, isLoading } = useSWR<{ users: TechnicianOption[] }>(`/users/technicians?zone=${zoneId}`, fetcher);
-  const techs = data?.users || [];
+  const techs = (data?.users || []).filter((t) => !reassign || t._id !== ticket.technician?._id);
   const [selected, setSelected] = React.useState('');
   const [note, setNote] = React.useState('');
 
@@ -174,13 +192,18 @@ function AssignDialog({ ticket, busy, onClose, onSubmit }: { ticket: Ticket; bus
   }, [techs, selected]);
 
   return (
-    <Dialog open title="Assign technician" onClose={onClose}>
+    <Dialog open title={reassign ? 'Reassign technician' : 'Assign technician'} onClose={onClose}>
+      {reassign && ticket.technician && (
+        <p className="mb-3 rounded-md bg-muted px-3 py-2 text-sm">
+          Currently with <span className="font-semibold">{ticket.technician.name}</span>. The new technician will need to accept the job.
+        </p>
+      )}
       <p className="mb-3 text-sm text-muted-foreground">
         Technicians who cover <span className="font-semibold text-foreground">{ticket.location?.zone?.name || 'this zone'}</span> are listed first, then whoever has the fewest open jobs.
       </p>
       <div className="max-h-72 space-y-2 overflow-y-auto">
         {isLoading && <p className="text-sm text-muted-foreground">Loading technicians…</p>}
-        {!isLoading && !techs.length && <p className="text-sm text-muted-foreground">No active technicians found.</p>}
+        {!isLoading && !techs.length && <p className="text-sm text-muted-foreground">No {reassign ? 'other ' : ''}active technicians found.</p>}
         {techs.map((t) => (
           <label
             key={t._id}
@@ -201,11 +224,21 @@ function AssignDialog({ ticket, busy, onClose, onSubmit }: { ticket: Ticket; bus
           </label>
         ))}
       </div>
-      <Field label="Note for technician (optional)" className="mt-4">
-        <Input value={note} onChange={(e) => setNote(e.target.value)} />
+      <Field label={reassign ? 'Why is this being reassigned?' : 'Note for technician (optional)'} className="mt-4">
+        {reassign ? (
+          <Textarea required minLength={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Technician unwell, could not reach the customer" />
+        ) : (
+          <Input value={note} onChange={(e) => setNote(e.target.value)} />
+        )}
       </Field>
-      <Button size="lg" className="mt-4 w-full" disabled={!selected} loading={busy} onClick={() => onSubmit({ technicianId: selected, note })}>
-        Assign technician
+      <Button
+        size="lg"
+        className="mt-4 w-full"
+        disabled={!selected || (reassign && note.trim().length < 3)}
+        loading={busy}
+        onClick={() => onSubmit({ technicianId: selected, note })}
+      >
+        {reassign ? 'Reassign technician' : 'Assign technician'}
       </Button>
     </Dialog>
   );
@@ -240,6 +273,52 @@ function CompleteDialog({ ticket, busy, onClose, onSubmit }: { ticket: Ticket; b
           <Input type="number" inputMode="numeric" min={0} max={1000} required value={charge} onChange={(e) => setCharge(e.target.value)} />
         </Field>
         <Button type="submit" size="lg" className="w-full" loading={busy}>Submit result</Button>
+      </form>
+    </Dialog>
+  );
+}
+
+const tomorrow = () => toDateInput(new Date(Date.now() + 86400000).toISOString());
+
+function HoldDialog({ busy, onClose, onSubmit }: { busy: boolean; onClose: () => void; onSubmit: (b: Record<string, unknown>) => void }) {
+  const [note, setNote] = React.useState('');
+  const [followUpDate, setFollowUpDate] = React.useState('');
+  return (
+    <Dialog open title="Put on hold" onClose={onClose}>
+      <p className="mb-4 text-sm text-muted-foreground">
+        Use this when the customer can’t confirm a date yet. The ticket stays open and the call center sees your note.
+      </p>
+      <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); onSubmit({ note, ...(followUpDate ? { followUpDate } : {}) }); }}>
+        <Field label="What did the customer say?">
+          <Textarea required minLength={3} autoFocus value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Vehicle is out of town, customer will call when it is back" />
+        </Field>
+        <Field label="Follow up on (optional)" hint="When to call the customer again">
+          <Input type="date" min={tomorrow()} value={followUpDate} onChange={(e) => setFollowUpDate(e.target.value)} />
+        </Field>
+        <Button type="submit" size="lg" className="w-full" loading={busy}>Put on hold</Button>
+      </form>
+    </Dialog>
+  );
+}
+
+function PostponeDialog({ ticket, busy, onClose, onSubmit }: { ticket: Ticket; busy: boolean; onClose: () => void; onSubmit: (b: Record<string, unknown>) => void }) {
+  const [note, setNote] = React.useState('');
+  const [newDate, setNewDate] = React.useState('');
+  const count = ticket.postponeCount || 0;
+  return (
+    <Dialog open title="Customer postponed" onClose={onClose}>
+      <p className="mb-4 text-sm text-muted-foreground">
+        Log each time the customer pushes the visit back. Your manager, admin and the call center will see it.
+        {count > 0 && <span className="mt-1 block font-semibold text-foreground">Postponed {count}× so far.</span>}
+      </p>
+      <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); onSubmit({ note, ...(newDate ? { newDate } : {}) }); }}>
+        <Field label="What did the customer say?">
+          <Textarea required minLength={3} autoFocus value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Not today, maybe tomorrow afternoon" />
+        </Field>
+        <Field label="New date (optional)" hint={ticket.scheduledDate ? `Currently scheduled for ${formatDate(ticket.scheduledDate)}` : 'Leave empty if the customer gave no date'}>
+          <Input type="date" min={toDateInput(new Date().toISOString())} value={newDate} onChange={(e) => setNewDate(e.target.value)} />
+        </Field>
+        <Button type="submit" size="lg" className="w-full" loading={busy}>Log postponement</Button>
       </form>
     </Dialog>
   );

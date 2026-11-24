@@ -104,6 +104,12 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
               <Item label="Address" wide>{t.location?.address || <span className="text-muted-foreground">Not confirmed yet</span>}</Item>
               <Item label="Zone">{t.location?.zone?.name || <span className="text-muted-foreground">Not set</span>}</Item>
               <Item label="Scheduled for">{t.scheduledDate ? formatDate(t.scheduledDate) : <span className="text-muted-foreground">Not scheduled</span>}</Item>
+              {t.status === 'ON_HOLD' && (
+                <Item label="Follow up on">{t.followUpDate ? formatDate(t.followUpDate) : <span className="text-muted-foreground">No date given</span>}</Item>
+              )}
+              {(t.postponeCount || 0) > 0 && (
+                <Item label="Times customer postponed"><span className="tnum">{t.postponeCount}</span></Item>
+              )}
               <Item label="Charge quoted at intake"><span className="tnum">{bdt(t.serviceCharge)}</span></Item>
               <Item label="Charge agreed with customer"><span className="tnum">{bdt(t.finalCharge)}</span></Item>
             </Section>

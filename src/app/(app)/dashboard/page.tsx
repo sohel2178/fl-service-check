@@ -18,7 +18,7 @@ interface Stats {
   totalCollected: number;
 }
 
-const OPEN: Status[] = ['PENDING_MANAGER', 'CONTACTING_CUSTOMER', 'CUSTOMER_AGREED', 'ASSIGNED', 'ACCEPTED', 'ON_THE_WAY', 'IN_PROGRESS', 'COMPLETED'];
+const OPEN: Status[] = ['PENDING_MANAGER', 'CONTACTING_CUSTOMER', 'ON_HOLD', 'CUSTOMER_AGREED', 'ASSIGNED', 'ACCEPTED', 'ON_THE_WAY', 'IN_PROGRESS', 'COMPLETED'];
 
 /** What the list on this page holds, per role. */
 const QUEUE: Record<Role, Status[]> = {

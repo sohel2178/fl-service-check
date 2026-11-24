@@ -6,7 +6,7 @@ import useSWR from 'swr';
 import { ChevronLeft, ChevronRight, PlusCircle, Search } from 'lucide-react';
 import { useAuth } from '@/components/auth-provider';
 import { PageHeader } from '@/components/app-shell';
-import { Plate, RouteTrack, StatusBadge, TicketRow } from '@/components/ticket-bits';
+import { DelayChips, Plate, RouteTrack, StatusBadge, TicketRow } from '@/components/ticket-bits';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -145,6 +145,7 @@ function TicketList() {
                     <td className="px-4 py-3.5">
                       <p>{t.location?.zone?.name || <span className="text-muted-foreground">No zone yet</span>}</p>
                       <p className="text-xs text-muted-foreground">{t.scheduledDate ? formatDate(t.scheduledDate) : 'Not scheduled'}</p>
+                      <DelayChips ticket={t} className="mt-1.5" />
                     </td>
                     <td className="px-4 py-3.5">{t.technician?.name || <span className="text-muted-foreground">None yet</span>}</td>
                     <td className="tnum px-4 py-3.5 text-right font-medium">{bdt(t.finalCharge ?? t.serviceCharge)}</td>

@@ -64,6 +64,18 @@ function Stamp({ at }: { at: string }) {
   );
 }
 
+/** Entries that don't move the ticket along: the position dot stays on the last real move. */
+const IN_PLACE = ['update', 'customer_postponed'];
+
+/** Titles for steps whose meaning isn't just "arrived at status X". */
+const ACTION_TITLE: Record<string, string> = {
+  create: 'Complaint logged',
+  put_on_hold: 'On hold – waiting for customer',
+  resume: 'Resumed – talking to customer',
+  reassign_technician: 'Technician reassigned',
+  customer_postponed: 'Customer postponed',
+};
+
 type Stop =
   | { kind: 'past'; entry: HistoryEntry; current: boolean }
   | { kind: 'note'; entry: HistoryEntry }
@@ -74,7 +86,7 @@ type Stop =
  * a live position dot for now, dashed track for the stops still ahead.
  */
 export function Journey({ history, status }: { history: HistoryEntry[]; status: Status }) {
-  const lastMove = history.map((h) => h.action !== 'update').lastIndexOf(true);
+  const lastMove = history.map((h) => !IN_PLACE.includes(h.action)).lastIndexOf(true);
   const stops: Stop[] = history.map((entry, i) =>
     entry.action === 'update' ? { kind: 'note', entry } : { kind: 'past', entry, current: i === lastMove }
   );
@@ -148,13 +160,27 @@ function StopBody({ stop }: { stop: Stop }) {
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
         <p className={cn('text-sm font-semibold', stop.current && 'text-[15px]')}>
-          {h.action === 'create' ? 'Complaint logged' : STATUS_META[h.to].label}
+          {ACTION_TITLE[h.action] || STATUS_META[h.to].label}
         </p>
         <p className="text-sm text-muted-foreground">{who}</p>
         {h.note && <p className="mt-1 whitespace-pre-line text-sm">{h.note}</p>}
       </div>
       <Stamp at={h.at} />
     </div>
+  );
+}
+
+/** Flags for tickets the customer is holding up. */
+export function DelayChips({ ticket: t, className }: { ticket: Ticket; className?: string }) {
+  const held = t.status === 'ON_HOLD';
+  const postponed = (t.postponeCount || 0) > 0 && !['CLOSED', 'CANCELLED'].includes(t.status);
+  if (!held && !postponed) return null;
+  const chip = 'tnum inline-flex items-center rounded-full bg-primary/20 px-2 py-0.5 text-[11px] font-semibold text-[hsl(30_80%_28%)]';
+  return (
+    <span className={cn('flex flex-wrap gap-1.5', className)}>
+      {held && <span className={chip}>{t.followUpDate ? `Follow up ${formatDate(t.followUpDate)}` : 'No date from customer'}</span>}
+      {postponed && <span className={chip}>Postponed {t.postponeCount}×</span>}
+    </span>
   );
 }
 
@@ -187,6 +213,7 @@ export function TicketRow({ ticket: t, yourMove }: { ticket: Ticket; yourMove?: 
             {t.technician && <span>{t.technician.name}</span>}
             <span className="tnum">{bdt(t.finalCharge ?? t.serviceCharge)}</span>
           </p>
+          <DelayChips ticket={t} className="mt-1.5" />
         </div>
       </div>
       <RouteTrack status={t.status} className="mt-3" />

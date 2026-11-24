@@ -1,4 +1,5 @@
 import type { Outcome, Role, Status } from './types';
+import { formatDate } from './utils';
 
 export type Tone = 'office' | 'field' | 'review' | 'done' | 'cancelled';
 
@@ -14,6 +15,7 @@ export const TONE_CLASS: Record<Tone, { chip: string; dot: string; bar: string }
 export const STATUS_META: Record<Status, { label: string; tone: Tone; upcoming: string }> = {
   PENDING_MANAGER: { label: 'Waiting for manager', tone: 'office', upcoming: 'Complaint logged' },
   CONTACTING_CUSTOMER: { label: 'Talking to customer', tone: 'office', upcoming: 'Manager calls the customer' },
+  ON_HOLD: { label: 'Waiting for customer', tone: 'office', upcoming: 'Customer confirms a date' },
   CUSTOMER_AGREED: { label: 'Needs a technician', tone: 'office', upcoming: 'Customer agrees to the visit' },
   ASSIGNED: { label: 'Assigned', tone: 'field', upcoming: 'Technician assigned' },
   ACCEPTED: { label: 'Accepted', tone: 'field', upcoming: 'Technician accepts' },
@@ -37,15 +39,22 @@ export const ROUTE: Status[] = [
   'CLOSED',
 ];
 
-export const routeProgress = (status: Status) => (status === 'CANCELLED' ? -1 : ROUTE.indexOf(status));
+export const routeProgress = (status: Status) =>
+  status === 'CANCELLED' ? -1 : ROUTE.indexOf(status === 'ON_HOLD' ? 'CONTACTING_CUSTOMER' : status);
 
 /** Plain-language "who has the ball" for a ticket. */
-export function waitingOn(t: { status: Status; manager: { name: string } | null; technician: { name: string } | null }) {
+export function waitingOn(t: {
+  status: Status;
+  manager: { name: string } | null;
+  technician: { name: string } | null;
+  followUpDate?: string | null;
+}) {
   const mgr = t.manager?.name || 'a Service Check Manager';
   const tech = t.technician?.name || 'the technician';
   switch (t.status) {
     case 'PENDING_MANAGER': return `Waiting for ${mgr} to pick this up.`;
     case 'CONTACTING_CUSTOMER': return `${mgr} is confirming location, date and charge with the customer.`;
+    case 'ON_HOLD': return `On hold: the customer has not confirmed a date yet.${t.followUpDate ? ` ${mgr} follows up on ${formatDate(t.followUpDate)}.` : ''}`;
     case 'CUSTOMER_AGREED': return `Customer agreed. ${mgr} needs to assign a technician.`;
     case 'ASSIGNED': return `Waiting for ${tech} to accept the job.`;
     case 'ACCEPTED': return `${tech} has accepted and will head out on the scheduled date.`;
@@ -60,11 +69,12 @@ export function waitingOn(t: { status: Status; manager: { name: string } | null;
 /** What to do, addressed to the person whose move it is. */
 export const YOUR_MOVE_TEXT: Partial<Record<Status, string>> = {
   PENDING_MANAGER: 'Pick this up, then call the customer to confirm location, date and charge.',
-  CONTACTING_CUSTOMER: 'Record what the customer agreed to, or mark it declined with a reason.',
+  CONTACTING_CUSTOMER: 'Record what the customer agreed to. If they can’t commit to a date yet, put it on hold with a note.',
+  ON_HOLD: 'Waiting for the customer to confirm a date. Resume when they are ready.',
   CUSTOMER_AGREED: 'Assign a technician. People who cover this zone are suggested first.',
   ASSIGNED: 'Accept the job if you can make the visit. Otherwise reject it with a reason.',
-  ACCEPTED: 'Mark yourself on the way when you leave for the customer.',
-  ON_THE_WAY: 'Start the service check when you reach the vehicle.',
+  ACCEPTED: 'Mark yourself on the way when you leave. If the customer pushes the visit back, log it under “Customer postponed”.',
+  ON_THE_WAY: 'Start the service check when you reach the vehicle. If the customer pushes it back, log it under “Customer postponed”.',
   IN_PROGRESS: 'Submit the result and the charge you collected when you finish.',
   COMPLETED: 'Check the technician’s result, then verify and close, or send it back.',
 };
@@ -94,7 +104,7 @@ export const OUTCOME_LABEL: Record<Outcome, string> = {
 /** Status groups used as list tabs, per role. */
 export const TABS: Record<Role, { key: string; label: string; statuses: Status[] }[]> = {
   call_center: [
-    { key: 'open', label: 'Open', statuses: ['PENDING_MANAGER', 'CONTACTING_CUSTOMER', 'CUSTOMER_AGREED', 'ASSIGNED', 'ACCEPTED', 'ON_THE_WAY', 'IN_PROGRESS', 'COMPLETED'] },
+    { key: 'open', label: 'Open', statuses: ['PENDING_MANAGER', 'CONTACTING_CUSTOMER', 'ON_HOLD', 'CUSTOMER_AGREED', 'ASSIGNED', 'ACCEPTED', 'ON_THE_WAY', 'IN_PROGRESS', 'COMPLETED'] },
     { key: 'closed', label: 'Closed', statuses: ['CLOSED'] },
     { key: 'cancelled', label: 'Cancelled', statuses: ['CANCELLED'] },
     { key: 'all', label: 'All', statuses: [] },
@@ -102,6 +112,7 @@ export const TABS: Record<Role, { key: string; label: string; statuses: Status[]
   manager: [
     { key: 'new', label: 'New', statuses: ['PENDING_MANAGER'] },
     { key: 'customer', label: 'With customer', statuses: ['CONTACTING_CUSTOMER', 'CUSTOMER_AGREED'] },
+    { key: 'hold', label: 'On hold', statuses: ['ON_HOLD'] },
     { key: 'field', label: 'In field', statuses: ['ASSIGNED', 'ACCEPTED', 'ON_THE_WAY', 'IN_PROGRESS'] },
     { key: 'verify', label: 'To verify', statuses: ['COMPLETED'] },
     { key: 'done', label: 'Done', statuses: ['CLOSED', 'CANCELLED'] },
@@ -117,6 +128,7 @@ export const TABS: Record<Role, { key: string; label: string; statuses: Status[]
     { key: 'all', label: 'All', statuses: [] },
     { key: 'new', label: 'New', statuses: ['PENDING_MANAGER'] },
     { key: 'customer', label: 'With customer', statuses: ['CONTACTING_CUSTOMER', 'CUSTOMER_AGREED'] },
+    { key: 'hold', label: 'On hold', statuses: ['ON_HOLD'] },
     { key: 'field', label: 'In field', statuses: ['ASSIGNED', 'ACCEPTED', 'ON_THE_WAY', 'IN_PROGRESS'] },
     { key: 'verify', label: 'To verify', statuses: ['COMPLETED'] },
     { key: 'done', label: 'Closed', statuses: ['CLOSED'] },

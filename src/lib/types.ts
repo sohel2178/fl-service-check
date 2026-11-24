@@ -3,6 +3,7 @@ export type Role = 'admin' | 'call_center' | 'manager' | 'technician';
 export type Status =
   | 'PENDING_MANAGER'
   | 'CONTACTING_CUSTOMER'
+  | 'ON_HOLD'
   | 'CUSTOMER_AGREED'
   | 'ASSIGNED'
   | 'ACCEPTED'
@@ -16,7 +17,11 @@ export type Action =
   | 'pick_up'
   | 'customer_agreed'
   | 'customer_declined'
+  | 'put_on_hold'
+  | 'resume'
   | 'assign_technician'
+  | 'reassign_technician'
+  | 'customer_postponed'
   | 'accept'
   | 'reject'
   | 'on_the_way'
@@ -73,6 +78,8 @@ export interface Ticket {
   finalCharge?: number;
   location?: { address?: string; zone?: Zone | null };
   scheduledDate?: string;
+  followUpDate?: string | null;
+  postponeCount?: number;
   status: Status;
   createdBy: UserRef;
   manager: UserRef | null;
@@ -86,7 +93,8 @@ export interface Ticket {
 export interface AllowedAction {
   action: Action;
   label: string;
-  to: Status;
+  /** null when the action keeps the current status. */
+  to: Status | null;
 }
 
 export interface TechnicianOption extends Omit<User, 'email' | 'role' | 'isActive'> {
